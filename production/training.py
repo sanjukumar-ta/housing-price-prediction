@@ -17,6 +17,9 @@ from ta_lib.core.api import (
     DEFAULT_ARTIFACTS_PATH,
 )
 
+# Import our custom transformer
+from custom_transformer import LogTransformer
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,12 +52,37 @@ def train_model(context, params):
     train_X_prepared = features_transformer.transform(sample_X)
     column_names = get_feature_names_from_column_transformer(features_transformer)
 
-    # Train models - Linear Regression and Random Forest
-    lin_reg = LinearRegression()
-    rf_reg = RandomForestRegressor(n_estimators=100, random_state=context.random_seed)
+    # Get model type and parameters from config
+    model_type = params.get("model_type", "random_forest")
+    model_params = params.get("model_params", {})
 
-    # We'll use Random Forest as our final model
-    model = rf_reg
+    if model_type == "linear_regression":
+        logger.info("Training Linear Regression model")
+        model_config = model_params.get("linear_regression", {})
+        model = LinearRegression(
+            fit_intercept=model_config.get("fit_intercept", True),
+            normalize=model_config.get("normalize", False),
+        )
+    elif model_type == "random_forest":
+        logger.info("Training Random Forest Regressor model")
+        model_config = model_params.get("random_forest", {})
+        model = RandomForestRegressor(
+            n_estimators=model_config.get("n_estimators", 100),
+            max_depth=model_config.get("max_depth", None),
+            min_samples_split=model_config.get("min_samples_split", 2),
+            min_samples_leaf=model_config.get("min_samples_leaf", 1),
+            random_state=model_config.get("random_state", context.random_seed),
+        )
+    else:
+        logger.warn(
+            f"Unknown model type: {model_type}. Defaulting to Random Forest Regressor."
+        )
+        model = RandomForestRegressor(
+            n_estimators=100, random_state=context.random_seed
+        )
+
+    # Fit the model
+    logger.info(f"Fitting {model_type} model")
     model.fit(train_X_prepared, sample_y.values.ravel())
 
     # Create training pipeline (for reproducibility)
@@ -62,10 +90,21 @@ def train_model(context, params):
 
     # Save fitted training pipeline
     save_pipeline(
-        train_pipeline, op.abspath(op.join(artifacts_folder, "train_pipeline.joblib"))
+        train_pipeline,
+        op.abspath(op.join(artifacts_folder, "train_pipeline.joblib")),
     )
 
     # Save feature names for later reference
     save_pipeline(
-        column_names, op.abspath(op.join(artifacts_folder, "feature_names.joblib"))
+        column_names,
+        op.abspath(op.join(artifacts_folder, "feature_names.joblib")),
     )
+
+    # Log model parameters
+    if hasattr(model, "get_params"):
+        logger.info(f"Model parameters: {model.get_params()}")
+
+    # Log model performance metrics on training data (if applicable)
+    if hasattr(model, "score"):
+        train_score = model.score(train_X_prepared, sample_y)
+        logger.info(f"Model R² score on training data: {train_score:.4f}")

@@ -25,6 +25,7 @@ from ta_lib.core.api import (
 )
 
 from ta_lib.data_processing.api import Outlier
+from custom_transformer import LogTransformer
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,27 @@ def transform_features(context, params):
         train_X, drop=params["outliers"]["drop"]
     )
 
+    # Apply log transformation if enabled
+    log_transform_params = params.get("log_transform", {})
+    if log_transform_params.get("enabled", False):
+        logger.info("Applying log transformation")
+        log_features = log_transform_params.get("features", None)
+        log_epsilon = log_transform_params.get("epsilon", 1e-6)
+        log_base = log_transform_params.get("log_base", 10)
+
+        log_transformer = LogTransformer(
+            features=log_features, epsilon=log_epsilon, log_base=log_base
+        )
+
+        # Fit and transform
+        train_X = log_transformer.fit_transform(train_X)
+
+        # Save the log transformer
+        save_pipeline(
+            log_transformer,
+            op.abspath(op.join(artifacts_folder, "log_transformer.joblib")),
+        )
+
     # Create feature engineering pipeline
     num_pipeline = Pipeline(
         [
@@ -69,7 +91,10 @@ def transform_features(context, params):
 
     # Combine transformers in a ColumnTransformer
     features_transformer = ColumnTransformer(
-        [("num", num_pipeline, num_columns), ("cat", cat_pipeline, cat_columns)]
+        [
+            ("num", num_pipeline, num_columns),
+            ("cat", cat_pipeline, cat_columns),
+        ]
     )
 
     # Check if the data should be sampled
@@ -90,8 +115,10 @@ def transform_features(context, params):
 
     # Save the list of relevant columns and the pipeline
     save_pipeline(
-        curated_columns, op.abspath(op.join(artifacts_folder, "curated_columns.joblib"))
+        curated_columns,
+        op.abspath(op.join(artifacts_folder, "curated_columns.joblib")),
     )
     save_pipeline(
-        features_transformer, op.abspath(op.join(artifacts_folder, "features.joblib"))
+        features_transformer,
+        op.abspath(op.join(artifacts_folder, "features.joblib")),
     )
