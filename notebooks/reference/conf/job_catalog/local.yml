@@ -1,44 +1,41 @@
 jobs:
   - name: data-cleaning
+    __tracker_experiment_name: Mlflow-tracker
     stages:
-        - name: 'clean-base-tables'
+        - name: "clean-housing-data"
           tasks:
-            - name: 'product'
+            - name: "housing"
               params: {}
-            - name: 'orders'
-              params: {}
-            
-        - name: 'clean-derivative-tables'
+        - name: "train-test-split"
           tasks:
-            - name: 'sales'
-              params: {}
-        - name: 'train-test-split'
-          tasks:
-            - name: 'train-test'
+            - name: "train-test"
               params:
-                target: unit_price,
+                target: median_house_value
                 test_size: 0.2
               
   - name: feat-engg
+    __tracker_experiment_name: Mlflow-tracker
     stages:
-        - name: 'feature-pipelines'
+        - name: "feature-pipelines"
           tasks:
-            - name: 'transform-features'
-              params: 
-                outliers: 
-                  method: percentile
-                  lb: 0.01
-                  ub: 0.99
-                  drop: True
+            - name: "transform-features"
+              params:
+                outliers:
+                  method: mean
+                  drop: False
+                sampling_fraction: 1.0
 
   - name: model-gen
+    __tracker_experiment_name: Mlflow-tracker
     stages:
-        - name: 'model-creation'
+        - name: "model-creation"
           tasks:
-            - name: 'train-model'
-              params: {}
+            - name: "train-model"
+              params:
+                sampling_fraction: 1.0
 
   - name: model-eval
+    __tracker_experiment_name: Mlflow-tracker
     stages:
         - name: 'model-predict'
           tasks:
