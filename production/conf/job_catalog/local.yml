@@ -24,6 +24,12 @@ jobs:
                 method: mean
                 drop: False
               sampling_fraction: 1.0
+              # Add log transformation parameters
+              log_transform:
+                enabled: True
+                features: ["total_rooms", "total_bedrooms", "population", "households"]
+                epsilon: 1e-6
+                log_base: 10
 
   - name: model-gen
     __tracker_experiment_name: Mlflow-tracker
@@ -33,6 +39,18 @@ jobs:
           - name: "train-model"
             params:
               sampling_fraction: 1.0
+              # Model parameters
+              model_type: "random_forest"  # Options: linear_regression, random_forest
+              model_params:
+                random_forest:
+                  n_estimators: 100
+                  max_depth: 10
+                  min_samples_split: 2
+                  min_samples_leaf: 1
+                  random_state: 0
+                linear_regression:
+                  fit_intercept: True
+                  normalize: False
 
   - name: model-eval
     __tracker_experiment_name: Mlflow-tracker
